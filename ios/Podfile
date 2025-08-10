@@ -1,9 +1,14 @@
-# Resolve react_native_pods.rb with node to allow for hoisting
-require Pod::Executable.execute_command('node', ['-p',
-  'require.resolve(
-    "react-native/scripts/react_native_pods.rb",
-    {paths: [process.argv[1]]},
-  )', __dir__]).strip
+# Resolve react_native_pods.rb with node to allow for hoisting; fallback to node_modules path if needed
+begin
+  resolved = Pod::Executable.execute_command('node', ['-p',
+    'require.resolve(
+      "react-native/scripts/react_native_pods.rb",
+      {paths: [process.argv[1]]},
+    )', __dir__]).strip
+  require resolved
+rescue
+  require_relative File.join('..', 'node_modules', 'react-native', 'scripts', 'react_native_pods')
+end
 
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
@@ -13,6 +18,9 @@ if linkage != nil
   Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
   use_frameworks! :linkage => linkage.to_sym
 end
+
+# Allow Swift pods (e.g., FirebaseCoreInternal) to be used with static libraries
+use_modular_headers!
 
 target 'Petzgram' do
   config = use_native_modules!
